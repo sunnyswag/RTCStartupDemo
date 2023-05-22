@@ -15,8 +15,8 @@ var peerConnections = [];
 
 var room = prompt('Enter room name:');
 
-//var socket = io('http://localhost:8080/socket.io');
-var socket = io('http://rtc-signal.jhuster.com:8080/socket.io');
+var socket = io('http://localhost:8080/socket.io');
+// var socket = io('http://rtc-signal.jhuster.com:8080/socket.io');
 
 if (room !== '') {
     console.log('Attempted to join room:', localUserId, room);

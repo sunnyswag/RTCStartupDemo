@@ -119,7 +119,9 @@ public class CallActivity extends AppCompatActivity {
 
         mSurfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", mRootEglBase.getEglBaseContext());
         VideoSource videoSource = mPeerConnectionFactory.createVideoSource(false);
-        mVideoCapturer.initialize(mSurfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
+        if (mVideoCapturer != null) {
+            mVideoCapturer.initialize(mSurfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
+        }
 
         mVideoTrack = mPeerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
         mVideoTrack.setEnabled(true);
@@ -133,14 +135,18 @@ public class CallActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        mVideoCapturer.startCapture(VIDEO_RESOLUTION_WIDTH, VIDEO_RESOLUTION_HEIGHT, VIDEO_FPS);
+        if (mVideoCapturer != null) {
+            mVideoCapturer.startCapture(VIDEO_RESOLUTION_WIDTH, VIDEO_RESOLUTION_HEIGHT, VIDEO_FPS);
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         try {
-            mVideoCapturer.stopCapture();
+            if (mVideoCapturer != null) {
+                mVideoCapturer.stopCapture();
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -152,7 +158,9 @@ public class CallActivity extends AppCompatActivity {
         doEndCall();
         mLocalSurfaceView.release();
         mRemoteSurfaceView.release();
-        mVideoCapturer.dispose();
+        if (mVideoCapturer != null) {
+            mVideoCapturer.dispose();
+        }
         mSurfaceTextureHelper.dispose();
         PeerConnectionFactory.stopInternalTracingCapture();
         PeerConnectionFactory.shutdownInternalTracer();
