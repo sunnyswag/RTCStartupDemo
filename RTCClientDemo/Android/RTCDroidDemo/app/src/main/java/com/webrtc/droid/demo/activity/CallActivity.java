@@ -2,11 +2,12 @@ package com.webrtc.droid.demo.activity;
 
 import android.content.Context;
 import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.webrtc.droid.demo.R;
 import com.webrtc.droid.demo.signal.RTCSignalClient;
@@ -15,9 +16,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
-import org.webrtc.Camera1Enumerator;
-import org.webrtc.Camera2Enumerator;
-import org.webrtc.CameraEnumerator;
 import org.webrtc.DataChannel;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
@@ -26,31 +24,20 @@ import org.webrtc.IceCandidate;
 import org.webrtc.Logging;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
-import org.webrtc.MediaStreamTrack;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.RendererCommon;
 import org.webrtc.RtpReceiver;
 import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
-import org.webrtc.SurfaceTextureHelper;
-import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoCapturer;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.VideoFrame;
 import org.webrtc.VideoSink;
-import org.webrtc.VideoSource;
-import org.webrtc.VideoTrack;
 
 import java.util.ArrayList;
 import java.util.UUID;
 
 public class CallActivity extends AppCompatActivity {
-
-    private static final int VIDEO_RESOLUTION_WIDTH = 1280;
-    private static final int VIDEO_RESOLUTION_HEIGHT = 720;
-    private static final int VIDEO_FPS = 30;
 
     private TextView mLogcatView;
     private Button mStartCallBtn;
@@ -58,7 +45,6 @@ public class CallActivity extends AppCompatActivity {
 
     private static final String TAG = "CallActivity";
 
-    public static final String VIDEO_TRACK_ID = "ARDAMSv0";
     public static final String AUDIO_TRACK_ID = "ARDAMSa0";
 
     private EglBase mRootEglBase;
@@ -66,15 +52,7 @@ public class CallActivity extends AppCompatActivity {
     private PeerConnection mPeerConnection;
     private PeerConnectionFactory mPeerConnectionFactory;
 
-    private SurfaceTextureHelper mSurfaceTextureHelper;
-
-    private SurfaceViewRenderer mLocalSurfaceView;
-    private SurfaceViewRenderer mRemoteSurfaceView;
-
-    private VideoTrack mVideoTrack;
     private AudioTrack mAudioTrack;
-
-    private VideoCapturer mVideoCapturer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,39 +71,9 @@ public class CallActivity extends AppCompatActivity {
 
         mRootEglBase = EglBase.create();
 
-        mLocalSurfaceView = findViewById(R.id.LocalSurfaceView);
-        mRemoteSurfaceView = findViewById(R.id.RemoteSurfaceView);
-
-        mLocalSurfaceView.init(mRootEglBase.getEglBaseContext(), null);
-        mLocalSurfaceView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
-        mLocalSurfaceView.setMirror(true);
-        mLocalSurfaceView.setEnableHardwareScaler(false /* enabled */);
-
-        mRemoteSurfaceView.init(mRootEglBase.getEglBaseContext(), null);
-        mRemoteSurfaceView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL);
-        mRemoteSurfaceView.setMirror(true);
-        mRemoteSurfaceView.setEnableHardwareScaler(true /* enabled */);
-        mRemoteSurfaceView.setZOrderMediaOverlay(true);
-
-        ProxyVideoSink videoSink = new ProxyVideoSink();
-        videoSink.setTarget(mLocalSurfaceView);
-
         mPeerConnectionFactory = createPeerConnectionFactory(this);
 
-        // NOTE: this _must_ happen while PeerConnectionFactory is alive!
         Logging.enableLogToDebugOutput(Logging.Severity.LS_VERBOSE);
-
-        mVideoCapturer = createVideoCapturer();
-
-        mSurfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", mRootEglBase.getEglBaseContext());
-        VideoSource videoSource = mPeerConnectionFactory.createVideoSource(false);
-        if (mVideoCapturer != null) {
-            mVideoCapturer.initialize(mSurfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
-        }
-
-        mVideoTrack = mPeerConnectionFactory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
-        mVideoTrack.setEnabled(true);
-        mVideoTrack.addSink(videoSink);
 
         AudioSource audioSource = mPeerConnectionFactory.createAudioSource(new MediaConstraints());
         mAudioTrack = mPeerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
@@ -133,35 +81,9 @@ public class CallActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (mVideoCapturer != null) {
-            mVideoCapturer.startCapture(VIDEO_RESOLUTION_WIDTH, VIDEO_RESOLUTION_HEIGHT, VIDEO_FPS);
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        try {
-            if (mVideoCapturer != null) {
-                mVideoCapturer.stopCapture();
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
     protected void onDestroy() {
         super.onDestroy();
         doEndCall();
-        mLocalSurfaceView.release();
-        mRemoteSurfaceView.release();
-        if (mVideoCapturer != null) {
-            mVideoCapturer.dispose();
-        }
-        mSurfaceTextureHelper.dispose();
         PeerConnectionFactory.stopInternalTracingCapture();
         PeerConnectionFactory.shutdownInternalTracer();
         RTCSignalClient.getInstance().leaveRoom();
@@ -176,9 +98,6 @@ public class CallActivity extends AppCompatActivity {
                 return;
             }
             mTarget.onFrame(frame);
-        }
-        synchronized void setTarget(VideoSink target) {
-            this.mTarget = target;
         }
     }
 
@@ -213,18 +132,13 @@ public class CallActivity extends AppCompatActivity {
     }
 
     private void updateCallState(boolean idle) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (idle) {
-                    mStartCallBtn.setVisibility(View.VISIBLE);
-                    mEndCallBtn.setVisibility(View.GONE);
-                    mRemoteSurfaceView.setVisibility(View.GONE);
-                } else {
-                    mStartCallBtn.setVisibility(View.GONE);
-                    mEndCallBtn.setVisibility(View.VISIBLE);
-                    mRemoteSurfaceView.setVisibility(View.VISIBLE);
-                }
+        runOnUiThread(() -> {
+            if (idle) {
+                mStartCallBtn.setVisibility(View.VISIBLE);
+                mEndCallBtn.setVisibility(View.GONE);
+            } else {
+                mStartCallBtn.setVisibility(View.GONE);
+                mEndCallBtn.setVisibility(View.VISIBLE);
             }
         });
     }
@@ -314,7 +228,6 @@ public class CallActivity extends AppCompatActivity {
             Log.e(TAG, "Failed to createPeerConnection !");
             return null;
         }
-        connection.addTrack(mVideoTrack);
         connection.addTrack(mAudioTrack);
         return connection;
     }
@@ -339,47 +252,6 @@ public class CallActivity extends AppCompatActivity {
         return builder.createPeerConnectionFactory();
     }
 
-    /*
-     * Read more about Camera2 here
-     * https://developer.android.com/reference/android/hardware/camera2/package-summary.html
-     **/
-    private VideoCapturer createVideoCapturer() {
-        if (Camera2Enumerator.isSupported(this)) {
-            return createCameraCapturer(new Camera2Enumerator(this));
-        } else {
-            return createCameraCapturer(new Camera1Enumerator(true));
-        }
-    }
-
-    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
-        final String[] deviceNames = enumerator.getDeviceNames();
-
-        // First, try to find front facing camera
-        Log.d(TAG, "Looking for front facing cameras.");
-        for (String deviceName : deviceNames) {
-            if (enumerator.isFrontFacing(deviceName)) {
-                Logging.d(TAG, "Creating front facing camera capturer.");
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
-                if (videoCapturer != null) {
-                    return videoCapturer;
-                }
-            }
-        }
-
-        // Front facing camera not found, try something else
-        Log.d(TAG, "Looking for other cameras.");
-        for (String deviceName : deviceNames) {
-            if (!enumerator.isFrontFacing(deviceName)) {
-                Logging.d(TAG, "Creating other camera capturer.");
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
-                if (videoCapturer != null) {
-                    return videoCapturer;
-                }
-            }
-        }
-        return null;
-    }
-
     private PeerConnection.Observer mPeerConnectionObserver = new PeerConnection.Observer() {
         @Override
         public void onSignalingChange(PeerConnection.SignalingState signalingState) {
@@ -389,6 +261,21 @@ public class CallActivity extends AppCompatActivity {
         @Override
         public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
             Log.i(TAG, "onIceConnectionChange: " + iceConnectionState);
+
+            switch (iceConnectionState) {
+                case FAILED:
+                    logcatOnUI("IceConnectionState: FAILED");
+                    // Handle failure: reconnect or alert the user
+                    break;
+                case DISCONNECTED:
+                    logcatOnUI("IceConnectionState: DISCONNECTED");
+                    // Handle disconnection: try to reconnect or alert the user
+                    break;
+                case CONNECTED:
+                    logcatOnUI("IceConnectionState: CONNECTED");
+                    // Handle successful connection
+                    break;
+            }
         }
 
         @Override
@@ -429,6 +316,14 @@ public class CallActivity extends AppCompatActivity {
         @Override
         public void onAddStream(MediaStream mediaStream) {
             Log.i(TAG, "onAddStream: " + mediaStream.videoTracks.size());
+
+            // Check if the stream contains an audio track
+            if (!mediaStream.audioTracks.isEmpty()) {
+                AudioTrack track = mediaStream.audioTracks.get(0);
+
+                // Enable the audio track of the incoming stream
+                track.setEnabled(true);
+            }
         }
 
         @Override
@@ -447,17 +342,7 @@ public class CallActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {
-            MediaStreamTrack track = rtpReceiver.track();
-            if (track instanceof VideoTrack) {
-                Log.i(TAG, "onAddVideoTrack");
-                VideoTrack remoteVideoTrack = (VideoTrack) track;
-                remoteVideoTrack.setEnabled(true);
-                ProxyVideoSink videoSink = new ProxyVideoSink();
-                videoSink.setTarget(mRemoteSurfaceView);
-                remoteVideoTrack.addSink(videoSink);
-            }
-        }
+        public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {}
     };
 
     private RTCSignalClient.OnSignalEventListener mOnSignalEventListener = new RTCSignalClient.OnSignalEventListener() {
@@ -554,12 +439,9 @@ public class CallActivity extends AppCompatActivity {
 
     private void logcatOnUI(String msg) {
         Log.i(TAG, msg);
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                String output = mLogcatView.getText() + "\n" + msg;
-                mLogcatView.setText(output);
-            }
+        runOnUiThread(() -> {
+            String output = mLogcatView.getText() + "\n" + msg;
+            mLogcatView.setText(output);
         });
     }
 }
