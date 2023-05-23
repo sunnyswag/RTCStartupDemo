@@ -20,17 +20,14 @@ public class MainActivity extends AppCompatActivity {
 
         final EditText serverEditText = findViewById(R.id.ServerEditText);
         final EditText roomEditText = findViewById(R.id.RoomEditText);
-        findViewById(R.id.JoinRoomBtn).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                String addr = serverEditText.getText().toString();
-                String roomName = roomEditText.getText().toString();
-                if (!"".equals(roomName)) {
-                    Intent intent = new Intent(MainActivity.this, CallActivity.class);
-                    intent.putExtra("ServerAddr", addr);
-                    intent.putExtra("RoomName", roomName);
-                    startActivity(intent);
-                }
+        findViewById(R.id.JoinRoomBtn).setOnClickListener(view -> {
+            String addr = serverEditText.getText().toString();
+            String roomName = roomEditText.getText().toString();
+            if (!"".equals(roomName)) {
+                Intent intent = new Intent(MainActivity.this, CallActivity.class);
+                intent.putExtra("ServerAddr", addr);
+                intent.putExtra("RoomName", roomName);
+                startActivity(intent);
             }
         });
 
