@@ -5,4 +5,5 @@
     <string name="server_tips">Input server addr: </string>
 <!--    <string name="default_server">http://rtc-signal.jhuster.com:8080/socket.io/</string>-->
     <string name="default_server">http://192.168.31.173:8080/socket.io/</string>
+    <string name="room_id">1111</string>
 </resources>

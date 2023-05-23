@@ -20,8 +20,8 @@ class MainActivity : AppCompatActivity() {
             val roomName = roomEditText.text.toString()
             if ("" != roomName) {
                 val intent = Intent(this@MainActivity, CallActivity::class.java)
-                intent.putExtra("ServerAddr", addr)
-                intent.putExtra("RoomName", roomName)
+                intent.putExtra(SERVER_ADDRESS, addr)
+                intent.putExtra(ROOM_NAME, roomName)
                 startActivity(intent)
             }
         }
@@ -43,6 +43,11 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
+    }
+
+    companion object {
+        const val SERVER_ADDRESS = "SERVER_ADDRESS"
+        const val ROOM_NAME = "ROOM_NAME"
     }
 
 }

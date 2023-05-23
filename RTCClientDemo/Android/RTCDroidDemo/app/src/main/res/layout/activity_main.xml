@@ -29,6 +29,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginLeft="10dp"
+        android:text="@string/room_id"
         android:layout_marginRight="10dp" />
 
     <Button
