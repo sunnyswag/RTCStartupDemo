@@ -1,7 +1,6 @@
 package com.webrtc.droid.demo.observer
 
 import android.util.Log
-import com.webrtc.droid.demo.activity.CallActivity
 import com.webrtc.droid.demo.entity.CallInfoEntity
 import com.webrtc.droid.demo.entity.CandidateInfoEntity
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_CANDIDATE

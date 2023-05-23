@@ -12,7 +12,7 @@ import io.socket.client.IO
 import io.socket.client.Socket
 import java.net.URISyntaxException
 
-class RTCSignalClient {
+class RTCSignalClient private constructor() {
     private var mSocket: Socket? = null
     lateinit var userId: String
         private set
@@ -63,16 +63,13 @@ class RTCSignalClient {
     companion object {
         private const val TAG = "RTCSignalClient"
         const val CLIENT_COMMAND_BROADCAST = "broadcast"
+        @Volatile
         private var mInstance: RTCSignalClient? = null
+
         @JvmStatic
-        val instance: RTCSignalClient?
-            get() {
-                synchronized(RTCSignalClient::class.java) {
-                    if (mInstance == null) {
-                        mInstance = RTCSignalClient()
-                    }
-                }
-                return mInstance
+        val instance: RTCSignalClient
+            get() = mInstance ?: synchronized(RTCSignalClient::class.java) {
+                mInstance ?: RTCSignalClient().also { mInstance = it }
             }
     }
 }
