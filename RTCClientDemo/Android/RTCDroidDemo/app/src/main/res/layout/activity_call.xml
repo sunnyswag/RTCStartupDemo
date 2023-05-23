@@ -17,8 +17,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="30dp"
         android:background="@drawable/startcall_button_selector"
-        android:layout_gravity="bottom|center"
-        android:onClick="onClickStartCallButton" />
+        android:layout_gravity="bottom|center" />
 
     <Button
         android:id="@+id/EndCallButton"
@@ -27,7 +26,6 @@
         android:layout_marginBottom="30dp"
         android:background="@drawable/endcall_btn_selector"
         android:layout_gravity="bottom|center"
-        android:visibility="gone"
-        android:onClick="onClickEndCallButton" />
+        android:visibility="gone" />
 
 </FrameLayout>

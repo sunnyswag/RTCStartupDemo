@@ -4,10 +4,8 @@ import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.Button
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.webrtc.droid.demo.R
+import com.webrtc.droid.demo.databinding.ActivityCallBinding
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_ANSWER
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_CANDIDATE
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_HANGUP
@@ -40,19 +38,17 @@ import org.webrtc.VideoEncoderFactory
 import java.util.UUID
 
 class CallActivity : AppCompatActivity() {
-    private var mLogcatView: TextView? = null
-    private var mStartCallBtn: Button? = null
-    private var mEndCallBtn: Button? = null
+
+    lateinit var binding: ActivityCallBinding
     private var mRootEglBase: EglBase? = null
     private var mPeerConnection: PeerConnection? = null
     private var mPeerConnectionFactory: PeerConnectionFactory? = null
     private var mAudioTrack: AudioTrack? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_call)
-        mLogcatView = findViewById(R.id.LogcatView)
-        mStartCallBtn = findViewById(R.id.StartCallButton)
-        mEndCallBtn = findViewById(R.id.EndCallButton)
+        binding = ActivityCallBinding.inflate(layoutInflater).apply { setContentView(root) }
+        initUI()
+
         instance!!.setSignalEventListener(mOnSignalEventListener)
         val serverAddress = intent.getStringExtra(MainActivity.SERVER_ADDRESS)
         val roomName = intent.getStringExtra(MainActivity.ROOM_NAME)
@@ -63,6 +59,15 @@ class CallActivity : AppCompatActivity() {
         val audioSource = mPeerConnectionFactory!!.createAudioSource(MediaConstraints())
         mAudioTrack = mPeerConnectionFactory!!.createAudioTrack(AUDIO_TRACK_ID, audioSource)
         mAudioTrack?.setEnabled(true)
+    }
+
+    private fun initUI() {
+        binding.StartCallButton.setOnClickListener {
+            doStartCall()
+        }
+        binding.EndCallButton.setOnClickListener {
+            doEndCall()
+        }
     }
 
     override fun onDestroy() {
@@ -91,22 +96,14 @@ class CallActivity : AppCompatActivity() {
         }
     }
 
-    fun onClickStartCallButton(v: View?) {
-        doStartCall()
-    }
-
-    fun onClickEndCallButton(v: View?) {
-        doEndCall()
-    }
-
     private fun updateCallState(idle: Boolean) {
         runOnUiThread {
             if (idle) {
-                mStartCallBtn!!.visibility = View.VISIBLE
-                mEndCallBtn!!.visibility = View.GONE
+                binding.StartCallButton.visibility = View.VISIBLE
+                binding.EndCallButton.visibility = View.GONE
             } else {
-                mStartCallBtn!!.visibility = View.GONE
-                mEndCallBtn!!.visibility = View.VISIBLE
+                binding.StartCallButton.visibility = View.GONE
+                binding.EndCallButton.visibility = View.VISIBLE
             }
         }
     }
@@ -137,7 +134,7 @@ class CallActivity : AppCompatActivity() {
 
     private fun doEndCall() {
         logcatOnUI("End Call, Wait ...")
-        hanup()
+        hangUp()
         instance!!.userId?.let { id ->
             instance!!.sendMessage(CallInfoEntity(
                 id,
@@ -169,14 +166,14 @@ class CallActivity : AppCompatActivity() {
         updateCallState(false)
     }
 
-    private fun hanup() {
-        logcatOnUI("Hanup Call, Wait ...")
+    private fun hangUp() {
+        logcatOnUI("hangUp Call, Wait ...")
         if (mPeerConnection == null) {
             return
         }
         mPeerConnection!!.close()
         mPeerConnection = null
-        logcatOnUI("Hanup Done.")
+        logcatOnUI("hangUp Done.")
         updateCallState(true)
     }
 
@@ -349,7 +346,7 @@ class CallActivity : AppCompatActivity() {
 
         private fun onRemoteHangup(entity: CallInfoEntity?) {
             logcatOnUI("Receive Remote Hanup Event ...")
-            hanup()
+            hangUp()
         }
     }
 
@@ -357,10 +354,10 @@ class CallActivity : AppCompatActivity() {
         Log.i(TAG, msg)
         runOnUiThread {
             val output = """
-                ${mLogcatView!!.text}
+                ${binding.LogcatView.text}
                 $msg
                 """.trimIndent()
-            mLogcatView!!.text = output
+            binding.LogcatView.text = output
         }
     }
 
