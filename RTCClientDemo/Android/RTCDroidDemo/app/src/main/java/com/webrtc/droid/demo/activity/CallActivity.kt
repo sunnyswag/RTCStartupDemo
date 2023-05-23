@@ -203,7 +203,8 @@ class CallActivity : AppCompatActivity() {
 
     fun createPeerConnection(): PeerConnection? {
         Log.i(TAG, "Create PeerConnection ...")
-        val configuration = RTCConfiguration(ArrayList())
+        val iceServers = listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
+        val configuration = RTCConfiguration(iceServers)
         val connection =
             mPeerConnectionFactory!!.createPeerConnection(configuration, mPeerConnectionObserver)
         if (connection == null) {
@@ -304,6 +305,7 @@ class CallActivity : AppCompatActivity() {
 
             override fun onAddTrack(rtpReceiver: RtpReceiver, mediaStreams: Array<MediaStream>) {}
         }
+
     private val mOnSignalEventListener: OnSignalEventListener = object : OnSignalEventListener {
         override fun onConnected() {
             logcatOnUI("Signal Server Connected !")
