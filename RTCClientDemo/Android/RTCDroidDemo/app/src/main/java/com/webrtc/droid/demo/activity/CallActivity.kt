@@ -120,13 +120,11 @@ class CallActivity : AppCompatActivity() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
                 Log.i(TAG, "Create local offer success:${sessionDescription.description}")
                 mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                instance!!.userId?.let { id ->
-                    instance!!.sendMessage(CallInfoEntity(
-                        id,
-                        MESSAGE_TYPE_OFFER,
-                        sessionDescription.description
-                    ).toJson())
-                }
+                instance!!.sendMessage(CallInfoEntity(
+                    instance!!.userId,
+                    MESSAGE_TYPE_OFFER,
+                    sessionDescription.description
+                ).toJson())
             }
         }, mediaConstraints)
     }
@@ -134,12 +132,10 @@ class CallActivity : AppCompatActivity() {
     private fun doEndCall() {
         logcatOnUI("End Call, Wait ...")
         hangUp()
-        instance!!.userId?.let { id ->
-            instance!!.sendMessage(CallInfoEntity(
-                id,
-                MESSAGE_TYPE_HANGUP
-            ).toJson())
-        }
+        instance!!.sendMessage(CallInfoEntity(
+            instance!!.userId,
+            MESSAGE_TYPE_HANGUP
+        ).toJson())
     }
 
     fun doAnswerCall() {
@@ -153,13 +149,11 @@ class CallActivity : AppCompatActivity() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
                 Log.i(TAG, "Create answer success !")
                 mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                instance!!.userId?.let { id ->
-                    instance!!.sendMessage(CallInfoEntity(
-                        id,
-                        MESSAGE_TYPE_ANSWER,
-                        sessionDescription.description
-                    ).toJson())
-                }
+                instance!!.sendMessage(CallInfoEntity(
+                    instance!!.userId,
+                    MESSAGE_TYPE_ANSWER,
+                    sessionDescription.description
+                ).toJson())
             }
         }, sdpMediaConstraints)
         updateCallState(false)
@@ -234,17 +228,15 @@ class CallActivity : AppCompatActivity() {
 
             override fun onIceCandidate(iceCandidate: IceCandidate) {
                 Log.i(TAG, "onIceCandidate: $iceCandidate")
-                instance!!.userId?.let { id ->
-                    instance!!.sendMessage(CallInfoEntity(
-                        id,
-                        MESSAGE_TYPE_CANDIDATE,
-                        candidateInfoEntity = CandidateInfoEntity(
-                            iceCandidate.sdpMLineIndex,
-                            iceCandidate.sdpMid,
-                            iceCandidate.sdp
-                        )
-                    ).toJson())
-                }
+                instance!!.sendMessage(CallInfoEntity(
+                    instance!!.userId,
+                    MESSAGE_TYPE_CANDIDATE,
+                    candidateInfoEntity = CandidateInfoEntity(
+                        iceCandidate.sdpMLineIndex,
+                        iceCandidate.sdpMid,
+                        iceCandidate.sdp
+                    )
+                ).toJson())
             }
 
             override fun onIceCandidatesRemoved(iceCandidates: Array<IceCandidate>) {
