@@ -8,11 +8,15 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.webrtc.droid.demo.R
-import com.webrtc.droid.demo.signal.RTCSignalClient
+import com.webrtc.droid.demo.entity.MESSAGE_TYPE_ANSWER
+import com.webrtc.droid.demo.entity.MESSAGE_TYPE_CANDIDATE
+import com.webrtc.droid.demo.entity.MESSAGE_TYPE_HANGUP
+import com.webrtc.droid.demo.entity.MESSAGE_TYPE_OFFER
+import com.webrtc.droid.demo.entity.CallInfoEntity
+import com.webrtc.droid.demo.entity.CandidateInfoEntity
 import com.webrtc.droid.demo.signal.RTCSignalClient.Companion.instance
 import com.webrtc.droid.demo.signal.RTCSignalClient.OnSignalEventListener
-import org.json.JSONException
-import org.json.JSONObject
+import com.webrtc.droid.demo.toJson
 import org.webrtc.AudioTrack
 import org.webrtc.DataChannel
 import org.webrtc.DefaultVideoDecoderFactory
@@ -33,8 +37,6 @@ import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.VideoDecoderFactory
 import org.webrtc.VideoEncoderFactory
-import org.webrtc.VideoFrame
-import org.webrtc.VideoSink
 import java.util.UUID
 
 class CallActivity : AppCompatActivity() {
@@ -69,18 +71,6 @@ class CallActivity : AppCompatActivity() {
         PeerConnectionFactory.stopInternalTracingCapture()
         PeerConnectionFactory.shutdownInternalTracer()
         instance!!.leaveRoom()
-    }
-
-    class ProxyVideoSink : VideoSink {
-        private val mTarget: VideoSink? = null
-        @Synchronized
-        override fun onFrame(frame: VideoFrame) {
-            if (mTarget == null) {
-                Log.d(TAG, "Dropping frame in proxy because target is null.")
-                return
-            }
-            mTarget.onFrame(frame)
-        }
     }
 
     open class SimpleSdpObserver : SdpObserver {
@@ -121,7 +111,7 @@ class CallActivity : AppCompatActivity() {
         }
     }
 
-    fun doStartCall() {
+    private fun doStartCall() {
         logcatOnUI("Start Call, Wait ...")
         if (mPeerConnection == null) {
             mPeerConnection = createPeerConnection()
@@ -132,36 +122,27 @@ class CallActivity : AppCompatActivity() {
         mediaConstraints.optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         mPeerConnection!!.createOffer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
-                Log.i(
-                    TAG, """
-     Create local offer success: 
-     ${sessionDescription.description}
-     """.trimIndent()
-                )
+                Log.i(TAG, "Create local offer success:${sessionDescription.description}")
                 mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                val message = JSONObject()
-                try {
-                    message.put("userId", instance!!.userId)
-                    message.put("msgType", RTCSignalClient.MESSAGE_TYPE_OFFER)
-                    message.put("sdp", sessionDescription.description)
-                    instance!!.sendMessage(message)
-                } catch (e: JSONException) {
-                    e.printStackTrace()
+                instance!!.userId?.let { id ->
+                    instance!!.sendMessage(CallInfoEntity(
+                        id,
+                        MESSAGE_TYPE_OFFER,
+                        sessionDescription.description
+                    ).toJson())
                 }
             }
         }, mediaConstraints)
     }
 
-    fun doEndCall() {
+    private fun doEndCall() {
         logcatOnUI("End Call, Wait ...")
         hanup()
-        val message = JSONObject()
-        try {
-            message.put("userId", instance!!.userId)
-            message.put("msgType", RTCSignalClient.MESSAGE_TYPE_HANGUP)
-            instance!!.sendMessage(message)
-        } catch (e: JSONException) {
-            e.printStackTrace()
+        instance!!.userId?.let { id ->
+            instance!!.sendMessage(CallInfoEntity(
+                id,
+                MESSAGE_TYPE_HANGUP
+            ).toJson())
         }
     }
 
@@ -176,14 +157,12 @@ class CallActivity : AppCompatActivity() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
                 Log.i(TAG, "Create answer success !")
                 mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                val message = JSONObject()
-                try {
-                    message.put("userId", instance!!.userId)
-                    message.put("msgType", RTCSignalClient.MESSAGE_TYPE_ANSWER)
-                    message.put("sdp", sessionDescription.description)
-                    instance!!.sendMessage(message)
-                } catch (e: JSONException) {
-                    e.printStackTrace()
+                instance!!.userId?.let { id ->
+                    instance!!.sendMessage(CallInfoEntity(
+                        id,
+                        MESSAGE_TYPE_ANSWER,
+                        sessionDescription.description
+                    ).toJson())
                 }
             }
         }, sdpMediaConstraints)
@@ -215,7 +194,7 @@ class CallActivity : AppCompatActivity() {
         return connection
     }
 
-    fun createPeerConnectionFactory(context: Context?): PeerConnectionFactory {
+    private fun createPeerConnectionFactory(context: Context?): PeerConnectionFactory {
         val encoderFactory: VideoEncoderFactory
         val decoderFactory: VideoDecoderFactory
         encoderFactory = DefaultVideoEncoderFactory(
@@ -259,16 +238,16 @@ class CallActivity : AppCompatActivity() {
 
             override fun onIceCandidate(iceCandidate: IceCandidate) {
                 Log.i(TAG, "onIceCandidate: $iceCandidate")
-                try {
-                    val message = JSONObject()
-                    message.put("userId", instance!!.userId)
-                    message.put("msgType", RTCSignalClient.MESSAGE_TYPE_CANDIDATE)
-                    message.put("label", iceCandidate.sdpMLineIndex)
-                    message.put("id", iceCandidate.sdpMid)
-                    message.put("candidate", iceCandidate.sdp)
-                    instance!!.sendMessage(message)
-                } catch (e: JSONException) {
-                    e.printStackTrace()
+                instance!!.userId?.let { id ->
+                    instance!!.sendMessage(CallInfoEntity(
+                        id,
+                        MESSAGE_TYPE_CANDIDATE,
+                        candidateInfoEntity = CandidateInfoEntity(
+                            iceCandidate.sdpMLineIndex,
+                            iceCandidate.sdpMid,
+                            iceCandidate.sdp
+                        )
+                    ).toJson())
                 }
             }
 
@@ -327,72 +306,48 @@ class CallActivity : AppCompatActivity() {
             logcatOnUI("Remote User Leaved: $userId")
         }
 
-        override fun onBroadcastReceived(message: JSONObject?) {
-            Log.i(TAG, "onBroadcastReceived: $message")
-            try {
-                val userId = message!!.getString("userId")
-                val type = message.getInt("msgType")
-                when (type) {
-                    RTCSignalClient.MESSAGE_TYPE_OFFER -> onRemoteOfferReceived(userId, message)
-                    RTCSignalClient.MESSAGE_TYPE_ANSWER -> onRemoteAnswerReceived(userId, message)
-                    RTCSignalClient.MESSAGE_TYPE_CANDIDATE -> onRemoteCandidateReceived(
-                        userId,
-                        message
-                    )
-
-                    RTCSignalClient.MESSAGE_TYPE_HANGUP -> onRemoteHangup(userId)
-                }
-            } catch (e: JSONException) {
-                e.printStackTrace()
+        override fun onBroadcastReceived(entity: CallInfoEntity?) {
+            Log.i(TAG, "onBroadcastReceived: ${entity?.toJson()}")
+            when (entity?.msgType) {
+                MESSAGE_TYPE_OFFER -> onRemoteOfferReceived(entity)
+                MESSAGE_TYPE_ANSWER -> onRemoteAnswerReceived(entity)
+                MESSAGE_TYPE_CANDIDATE -> onRemoteCandidateReceived(entity)
+                MESSAGE_TYPE_HANGUP -> onRemoteHangup(entity)
             }
         }
 
-        private fun onRemoteOfferReceived(userId: String, message: JSONObject?) {
+        private fun onRemoteOfferReceived(entity: CallInfoEntity) {
             logcatOnUI("Receive Remote Call ...")
             if (mPeerConnection == null) {
                 mPeerConnection = createPeerConnection()
             }
-            try {
-                val description = message!!.getString("sdp")
-                mPeerConnection!!.setRemoteDescription(
-                    SimpleSdpObserver(),
-                    SessionDescription(SessionDescription.Type.OFFER, description)
-                )
-                doAnswerCall()
-            } catch (e: JSONException) {
-                e.printStackTrace()
-            }
+            mPeerConnection!!.setRemoteDescription(
+                SimpleSdpObserver(),
+                SessionDescription(SessionDescription.Type.OFFER, entity.sdp)
+            )
+            doAnswerCall()
         }
 
-        private fun onRemoteAnswerReceived(userId: String, message: JSONObject?) {
-            logcatOnUI("Receive Remote Answer ...")
-            try {
-                val description = message!!.getString("sdp")
-                mPeerConnection!!.setRemoteDescription(
-                    SimpleSdpObserver(),
-                    SessionDescription(SessionDescription.Type.ANSWER, description)
-                )
-            } catch (e: JSONException) {
-                e.printStackTrace()
-            }
+        private fun onRemoteAnswerReceived(entity: CallInfoEntity) {
+        logcatOnUI("Receive Remote Answer ...")
+            mPeerConnection!!.setRemoteDescription(
+                SimpleSdpObserver(),
+                SessionDescription(SessionDescription.Type.ANSWER, entity.sdp)
+            )
             updateCallState(false)
         }
 
-        private fun onRemoteCandidateReceived(userId: String, message: JSONObject?) {
+        private fun onRemoteCandidateReceived(entity: CallInfoEntity) {
             logcatOnUI("Receive Remote Candidate ...")
-            try {
-                val remoteIceCandidate = IceCandidate(
-                    message!!.getString("id"),
-                    message.getInt("label"),
-                    message.getString("candidate")
-                )
-                mPeerConnection!!.addIceCandidate(remoteIceCandidate)
-            } catch (e: JSONException) {
-                e.printStackTrace()
-            }
+            val remoteIceCandidate = IceCandidate(
+                entity.candidateInfoEntity?.id,
+                entity.candidateInfoEntity?.label ?: 0,
+                entity.candidateInfoEntity?.candidate
+            )
+            mPeerConnection!!.addIceCandidate(remoteIceCandidate)
         }
 
-        private fun onRemoteHangup(userId: String) {
+        private fun onRemoteHangup(entity: CallInfoEntity?) {
             logcatOnUI("Receive Remote Hanup Event ...")
             hanup()
         }

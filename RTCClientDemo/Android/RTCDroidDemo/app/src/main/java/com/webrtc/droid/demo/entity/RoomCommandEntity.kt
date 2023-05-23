@@ -9,6 +9,3 @@ data class RoomCommandEntity(
     val userId: String,
     val roomName: String,
 )
-
-const val JOIN_ROOM = "join-room"
-const val LEAVE_ROOM = "leave-room"
