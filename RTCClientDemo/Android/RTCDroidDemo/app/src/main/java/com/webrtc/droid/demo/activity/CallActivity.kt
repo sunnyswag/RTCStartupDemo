@@ -32,29 +32,37 @@ import java.util.UUID
 
 class CallActivity : AppCompatActivity() {
 
-    lateinit var binding: ActivityCallBinding
-    private var mRootEglBase: EglBase? = null
+    private lateinit var binding: ActivityCallBinding
+    private lateinit var mRootEglBase: EglBase
     private var mPeerConnection: PeerConnection? = null
-    private var mPeerConnectionFactory: PeerConnectionFactory? = null
-    private var mAudioTrack: AudioTrack? = null
+    private lateinit var mPeerConnectionFactory: PeerConnectionFactory
+    private lateinit var mAudioTrack: AudioTrack
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityCallBinding.inflate(layoutInflater).apply { setContentView(root) }
         initUI()
+        setContentView(binding.root)
+        initService()
 
-        instance!!.broadcastReceived = ::onBroadcastReceived
+        instance.broadcastReceived = ::onBroadcastReceived
         val serverAddress = intent.getStringExtra(MainActivity.SERVER_ADDRESS)
         val roomName = intent.getStringExtra(MainActivity.ROOM_NAME)
-        instance!!.joinRoom(serverAddress, UUID.randomUUID().toString(), roomName)
+        instance.joinRoom(serverAddress, UUID.randomUUID().toString(), roomName)
+
+        Logging.enableLogToDebugOutput(Logging.Severity.LS_VERBOSE)
+    }
+
+    private fun initService() {
         mRootEglBase = EglBase.create()
         mPeerConnectionFactory = createPeerConnectionFactory(this)
-        Logging.enableLogToDebugOutput(Logging.Severity.LS_VERBOSE)
-        val audioSource = mPeerConnectionFactory!!.createAudioSource(MediaConstraints())
-        mAudioTrack = mPeerConnectionFactory!!.createAudioTrack(AUDIO_TRACK_ID, audioSource)
-        mAudioTrack?.setEnabled(true)
+
+        val audioSource = mPeerConnectionFactory.createAudioSource(MediaConstraints())
+        mAudioTrack = mPeerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, audioSource)
+        mAudioTrack.setEnabled(true)
     }
 
     private fun initUI() {
+        binding = ActivityCallBinding.inflate(layoutInflater)
         binding.StartCallButton.setOnClickListener {
             doStartCall()
         }
@@ -68,7 +76,7 @@ class CallActivity : AppCompatActivity() {
         doEndCall()
         PeerConnectionFactory.stopInternalTracingCapture()
         PeerConnectionFactory.shutdownInternalTracer()
-        instance!!.leaveRoom()
+        instance.leaveRoom()
     }
 
 
@@ -93,13 +101,13 @@ class CallActivity : AppCompatActivity() {
         mediaConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         mediaConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
         mediaConstraints.optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
-        mPeerConnection!!.createOffer(object : SimpleSdpObserver() {
+        mPeerConnection?.createOffer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
                 Log.i(TAG, "Create local offer success:${sessionDescription.description}")
-                mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                instance!!.sendMessage(
+                mPeerConnection?.setLocalDescription(SimpleSdpObserver(), sessionDescription)
+                instance.sendMessage(
                     CallInfoEntity(
-                        instance!!.userId,
+                        instance.userId,
                         MESSAGE_TYPE_OFFER,
                         sessionDescription.description
                     ).toJson()
@@ -111,9 +119,9 @@ class CallActivity : AppCompatActivity() {
     private fun doEndCall() {
         logcatOnUI("End Call, Wait ...")
         hangUp()
-        instance!!.sendMessage(
+        instance.sendMessage(
             CallInfoEntity(
-                instance!!.userId,
+                instance.userId,
                 MESSAGE_TYPE_HANGUP
             ).toJson()
         )
@@ -126,13 +134,13 @@ class CallActivity : AppCompatActivity() {
         }
         val sdpMediaConstraints = MediaConstraints()
         Log.i(TAG, "Create answer ...")
-        mPeerConnection!!.createAnswer(object : SimpleSdpObserver() {
+        mPeerConnection?.createAnswer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
                 Log.i(TAG, "Create answer success !")
-                mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                instance!!.sendMessage(
+                mPeerConnection?.setLocalDescription(SimpleSdpObserver(), sessionDescription)
+                instance.sendMessage(
                     CallInfoEntity(
-                        instance!!.userId,
+                        instance.userId,
                         MESSAGE_TYPE_ANSWER,
                         sessionDescription.description
                     ).toJson()
@@ -144,10 +152,7 @@ class CallActivity : AppCompatActivity() {
 
     private fun hangUp() {
         logcatOnUI("hangUp Call, Wait ...")
-        if (mPeerConnection == null) {
-            return
-        }
-        mPeerConnection!!.close()
+        mPeerConnection?.close()
         mPeerConnection = null
         logcatOnUI("hangUp Done.")
         updateCallState(true)
@@ -160,22 +165,20 @@ class CallActivity : AppCompatActivity() {
         )
         val configuration = RTCConfiguration(iceServers)
         val connection =
-            mPeerConnectionFactory!!.createPeerConnection(configuration, mPeerConnectionObserver)
-        if (connection == null) {
+            mPeerConnectionFactory.createPeerConnection(configuration, mPeerConnectionObserver)
+        return connection?.apply { addTrack(mAudioTrack) } ?: kotlin.run {
             Log.e(TAG, "Failed to createPeerConnection !")
-            return null
+            null
         }
-        connection.addTrack(mAudioTrack)
-        return connection
     }
 
     private fun createPeerConnectionFactory(context: Context?): PeerConnectionFactory {
         val encoderFactory: VideoEncoderFactory
         val decoderFactory: VideoDecoderFactory
         encoderFactory = DefaultVideoEncoderFactory(
-            mRootEglBase!!.eglBaseContext, false /* enableIntelVp8Encoder */, true
+            mRootEglBase.eglBaseContext, false /* enableIntelVp8Encoder */, true
         )
-        decoderFactory = DefaultVideoDecoderFactory(mRootEglBase!!.eglBaseContext)
+        decoderFactory = DefaultVideoDecoderFactory(mRootEglBase.eglBaseContext)
         PeerConnectionFactory.initialize(
             PeerConnectionFactory.InitializationOptions.builder(context)
                 .setEnableInternalTracer(true)
@@ -191,7 +194,7 @@ class CallActivity : AppCompatActivity() {
     private val mPeerConnectionObserver: PeerConnection.Observer = object : SimplePeerObserver() {
         override fun onIceCandidatesRemoved(iceCandidates: Array<IceCandidate>) {
             super.onIceCandidatesRemoved(iceCandidates)
-            mPeerConnection!!.removeIceCandidates(iceCandidates)
+            mPeerConnection?.removeIceCandidates(iceCandidates)
         }
     }
 
@@ -234,7 +237,7 @@ class CallActivity : AppCompatActivity() {
             entity.candidateInfoEntity?.label ?: 0,
             entity.candidateInfoEntity?.candidate
         )
-        mPeerConnection!!.addIceCandidate(remoteIceCandidate)
+        mPeerConnection?.addIceCandidate(remoteIceCandidate)
     }
 
     private fun onRemoteHangup(entity: CallInfoEntity?) {
