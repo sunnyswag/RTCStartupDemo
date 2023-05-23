@@ -6,31 +6,25 @@ import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.webrtc.droid.demo.databinding.ActivityCallBinding
+import com.webrtc.droid.demo.entity.CallInfoEntity
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_ANSWER
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_CANDIDATE
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_HANGUP
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_OFFER
-import com.webrtc.droid.demo.entity.CallInfoEntity
-import com.webrtc.droid.demo.entity.CandidateInfoEntity
+import com.webrtc.droid.demo.observer.SimplePeerObserver
+import com.webrtc.droid.demo.observer.SimpleSdpObserver
 import com.webrtc.droid.demo.signal.RTCSignalClient.Companion.instance
 import com.webrtc.droid.demo.toJson
 import org.webrtc.AudioTrack
-import org.webrtc.DataChannel
 import org.webrtc.DefaultVideoDecoderFactory
 import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.Logging
 import org.webrtc.MediaConstraints
-import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
-import org.webrtc.PeerConnection.IceConnectionState
-import org.webrtc.PeerConnection.IceGatheringState
 import org.webrtc.PeerConnection.RTCConfiguration
-import org.webrtc.PeerConnection.SignalingState
 import org.webrtc.PeerConnectionFactory
-import org.webrtc.RtpReceiver
-import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.VideoDecoderFactory
 import org.webrtc.VideoEncoderFactory
@@ -77,23 +71,6 @@ class CallActivity : AppCompatActivity() {
         instance!!.leaveRoom()
     }
 
-    open class SimpleSdpObserver : SdpObserver {
-        override fun onCreateSuccess(sessionDescription: SessionDescription) {
-            Log.i(TAG, "SdpObserver: onCreateSuccess !")
-        }
-
-        override fun onSetSuccess() {
-            Log.i(TAG, "SdpObserver: onSetSuccess")
-        }
-
-        override fun onCreateFailure(msg: String) {
-            Log.e(TAG, "SdpObserver onCreateFailure: $msg")
-        }
-
-        override fun onSetFailure(msg: String) {
-            Log.e(TAG, "SdpObserver onSetFailure: $msg")
-        }
-    }
 
     private fun updateCallState(idle: Boolean) {
         runOnUiThread {
@@ -120,11 +97,13 @@ class CallActivity : AppCompatActivity() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
                 Log.i(TAG, "Create local offer success:${sessionDescription.description}")
                 mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                instance!!.sendMessage(CallInfoEntity(
-                    instance!!.userId,
-                    MESSAGE_TYPE_OFFER,
-                    sessionDescription.description
-                ).toJson())
+                instance!!.sendMessage(
+                    CallInfoEntity(
+                        instance!!.userId,
+                        MESSAGE_TYPE_OFFER,
+                        sessionDescription.description
+                    ).toJson()
+                )
             }
         }, mediaConstraints)
     }
@@ -132,13 +111,15 @@ class CallActivity : AppCompatActivity() {
     private fun doEndCall() {
         logcatOnUI("End Call, Wait ...")
         hangUp()
-        instance!!.sendMessage(CallInfoEntity(
-            instance!!.userId,
-            MESSAGE_TYPE_HANGUP
-        ).toJson())
+        instance!!.sendMessage(
+            CallInfoEntity(
+                instance!!.userId,
+                MESSAGE_TYPE_HANGUP
+            ).toJson()
+        )
     }
 
-    fun doAnswerCall() {
+    private fun doAnswerCall() {
         logcatOnUI("Answer Call, Wait ...")
         if (mPeerConnection == null) {
             mPeerConnection = createPeerConnection()
@@ -149,11 +130,13 @@ class CallActivity : AppCompatActivity() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
                 Log.i(TAG, "Create answer success !")
                 mPeerConnection!!.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                instance!!.sendMessage(CallInfoEntity(
-                    instance!!.userId,
-                    MESSAGE_TYPE_ANSWER,
-                    sessionDescription.description
-                ).toJson())
+                instance!!.sendMessage(
+                    CallInfoEntity(
+                        instance!!.userId,
+                        MESSAGE_TYPE_ANSWER,
+                        sessionDescription.description
+                    ).toJson()
+                )
             }
         }, sdpMediaConstraints)
         updateCallState(false)
@@ -170,9 +153,11 @@ class CallActivity : AppCompatActivity() {
         updateCallState(true)
     }
 
-    fun createPeerConnection(): PeerConnection? {
+    private fun createPeerConnection(): PeerConnection? {
         Log.i(TAG, "Create PeerConnection ...")
-        val iceServers = listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
+        val iceServers = listOf(
+            PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer()
+        )
         val configuration = RTCConfiguration(iceServers)
         val connection =
             mPeerConnectionFactory!!.createPeerConnection(configuration, mPeerConnectionObserver)
@@ -203,75 +188,12 @@ class CallActivity : AppCompatActivity() {
         return builder.createPeerConnectionFactory()
     }
 
-    private val mPeerConnectionObserver: PeerConnection.Observer =
-        object : PeerConnection.Observer {
-            override fun onSignalingChange(signalingState: SignalingState) {
-                Log.i(TAG, "onSignalingChange: $signalingState")
-            }
-
-            override fun onIceConnectionChange(iceConnectionState: IceConnectionState) {
-                Log.i(TAG, "onIceConnectionChange: $iceConnectionState")
-                when (iceConnectionState) {
-                    IceConnectionState.FAILED -> logcatOnUI("IceConnectionState: FAILED")
-                    IceConnectionState.DISCONNECTED -> logcatOnUI("IceConnectionState: DISCONNECTED")
-                    IceConnectionState.CONNECTED -> logcatOnUI("IceConnectionState: CONNECTED")
-                }
-            }
-
-            override fun onIceConnectionReceivingChange(b: Boolean) {
-                Log.i(TAG, "onIceConnectionChange: $b")
-            }
-
-            override fun onIceGatheringChange(iceGatheringState: IceGatheringState) {
-                Log.i(TAG, "onIceGatheringChange: $iceGatheringState")
-            }
-
-            override fun onIceCandidate(iceCandidate: IceCandidate) {
-                Log.i(TAG, "onIceCandidate: $iceCandidate")
-                instance!!.sendMessage(CallInfoEntity(
-                    instance!!.userId,
-                    MESSAGE_TYPE_CANDIDATE,
-                    candidateInfoEntity = CandidateInfoEntity(
-                        iceCandidate.sdpMLineIndex,
-                        iceCandidate.sdpMid,
-                        iceCandidate.sdp
-                    )
-                ).toJson())
-            }
-
-            override fun onIceCandidatesRemoved(iceCandidates: Array<IceCandidate>) {
-                for (i in iceCandidates.indices) {
-                    Log.i(TAG, "onIceCandidatesRemoved: " + iceCandidates[i])
-                }
-                mPeerConnection!!.removeIceCandidates(iceCandidates)
-            }
-
-            override fun onAddStream(mediaStream: MediaStream) {
-                Log.i(TAG, "onAddStream: " + mediaStream.videoTracks.size)
-
-                // Check if the stream contains an audio track
-                if (!mediaStream.audioTracks.isEmpty()) {
-                    val track = mediaStream.audioTracks[0]
-
-                    // Enable the audio track of the incoming stream
-                    track.setEnabled(true)
-                }
-            }
-
-            override fun onRemoveStream(mediaStream: MediaStream) {
-                Log.i(TAG, "onRemoveStream")
-            }
-
-            override fun onDataChannel(dataChannel: DataChannel) {
-                Log.i(TAG, "onDataChannel")
-            }
-
-            override fun onRenegotiationNeeded() {
-                Log.i(TAG, "onRenegotiationNeeded")
-            }
-
-            override fun onAddTrack(rtpReceiver: RtpReceiver, mediaStreams: Array<MediaStream>) {}
+    private val mPeerConnectionObserver: PeerConnection.Observer = object : SimplePeerObserver() {
+        override fun onIceCandidatesRemoved(iceCandidates: Array<IceCandidate>) {
+            super.onIceCandidatesRemoved(iceCandidates)
+            mPeerConnection!!.removeIceCandidates(iceCandidates)
         }
+    }
 
     private fun onBroadcastReceived(entity: CallInfoEntity?) {
         logcatOnUI("Receive Remote Answer ...")
