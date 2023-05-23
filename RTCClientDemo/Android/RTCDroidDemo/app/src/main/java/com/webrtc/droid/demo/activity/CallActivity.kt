@@ -13,7 +13,6 @@ import com.webrtc.droid.demo.entity.MESSAGE_TYPE_OFFER
 import com.webrtc.droid.demo.entity.CallInfoEntity
 import com.webrtc.droid.demo.entity.CandidateInfoEntity
 import com.webrtc.droid.demo.signal.RTCSignalClient.Companion.instance
-import com.webrtc.droid.demo.signal.RTCSignalClient.OnSignalEventListener
 import com.webrtc.droid.demo.toJson
 import org.webrtc.AudioTrack
 import org.webrtc.DataChannel
@@ -49,7 +48,7 @@ class CallActivity : AppCompatActivity() {
         binding = ActivityCallBinding.inflate(layoutInflater).apply { setContentView(root) }
         initUI()
 
-        instance!!.setSignalEventListener(mOnSignalEventListener)
+        instance!!.broadcastReceived = ::onBroadcastReceived
         val serverAddress = intent.getStringExtra(MainActivity.SERVER_ADDRESS)
         val roomName = intent.getStringExtra(MainActivity.ROOM_NAME)
         instance!!.joinRoom(serverAddress, UUID.randomUUID().toString(), roomName)
@@ -282,72 +281,51 @@ class CallActivity : AppCompatActivity() {
             override fun onAddTrack(rtpReceiver: RtpReceiver, mediaStreams: Array<MediaStream>) {}
         }
 
-    private val mOnSignalEventListener: OnSignalEventListener = object : OnSignalEventListener {
-        override fun onConnected() {
-            logcatOnUI("Signal Server Connected !")
-        }
-
-        override fun onConnecting() {
-            logcatOnUI("Signal Server Connecting !")
-        }
-
-        override fun onDisconnected() {
-            logcatOnUI("Signal Server Connecting !")
-        }
-
-        override fun onRemoteUserJoined(userId: String?) {
-            logcatOnUI("Remote User Joined: $userId")
-        }
-
-        override fun onRemoteUserLeft(userId: String?) {
-            logcatOnUI("Remote User Leaved: $userId")
-        }
-
-        override fun onBroadcastReceived(entity: CallInfoEntity?) {
-            Log.i(TAG, "onBroadcastReceived: ${entity?.toJson()}")
-            when (entity?.msgType) {
-                MESSAGE_TYPE_OFFER -> onRemoteOfferReceived(entity)
-                MESSAGE_TYPE_ANSWER -> onRemoteAnswerReceived(entity)
-                MESSAGE_TYPE_CANDIDATE -> onRemoteCandidateReceived(entity)
-                MESSAGE_TYPE_HANGUP -> onRemoteHangup(entity)
-            }
-        }
-
-        private fun onRemoteOfferReceived(entity: CallInfoEntity) {
-            logcatOnUI("Receive Remote Call ...")
-            if (mPeerConnection == null) {
-                mPeerConnection = createPeerConnection()
-            }
-            mPeerConnection!!.setRemoteDescription(
-                SimpleSdpObserver(),
-                SessionDescription(SessionDescription.Type.OFFER, entity.sdp)
-            )
-            doAnswerCall()
-        }
-
-        private fun onRemoteAnswerReceived(entity: CallInfoEntity) {
+    private fun onBroadcastReceived(entity: CallInfoEntity?) {
         logcatOnUI("Receive Remote Answer ...")
-            mPeerConnection!!.setRemoteDescription(
-                SimpleSdpObserver(),
-                SessionDescription(SessionDescription.Type.ANSWER, entity.sdp)
-            )
-            updateCallState(false)
+        Log.i(TAG, "onBroadcastReceived: ${entity?.toJson()}")
+        when (entity?.msgType) {
+            MESSAGE_TYPE_OFFER -> onRemoteOfferReceived(entity)
+            MESSAGE_TYPE_ANSWER -> onRemoteAnswerReceived(entity)
+            MESSAGE_TYPE_CANDIDATE -> onRemoteCandidateReceived(entity)
+            MESSAGE_TYPE_HANGUP -> onRemoteHangup(entity)
         }
+    }
 
-        private fun onRemoteCandidateReceived(entity: CallInfoEntity) {
-            logcatOnUI("Receive Remote Candidate ...")
-            val remoteIceCandidate = IceCandidate(
-                entity.candidateInfoEntity?.id,
-                entity.candidateInfoEntity?.label ?: 0,
-                entity.candidateInfoEntity?.candidate
-            )
-            mPeerConnection!!.addIceCandidate(remoteIceCandidate)
+    private fun onRemoteOfferReceived(entity: CallInfoEntity) {
+        logcatOnUI("Receive Remote Call ...")
+        if (mPeerConnection == null) {
+            mPeerConnection = createPeerConnection()
         }
+        mPeerConnection!!.setRemoteDescription(
+            SimpleSdpObserver(),
+            SessionDescription(SessionDescription.Type.OFFER, entity.sdp)
+        )
+        doAnswerCall()
+    }
 
-        private fun onRemoteHangup(entity: CallInfoEntity?) {
-            logcatOnUI("Receive Remote Hanup Event ...")
-            hangUp()
-        }
+    private fun onRemoteAnswerReceived(entity: CallInfoEntity) {
+        logcatOnUI("Receive Remote Answer ...")
+        mPeerConnection!!.setRemoteDescription(
+            SimpleSdpObserver(),
+            SessionDescription(SessionDescription.Type.ANSWER, entity.sdp)
+        )
+        updateCallState(false)
+    }
+
+    private fun onRemoteCandidateReceived(entity: CallInfoEntity) {
+        logcatOnUI("Receive Remote Candidate ...")
+        val remoteIceCandidate = IceCandidate(
+            entity.candidateInfoEntity?.id,
+            entity.candidateInfoEntity?.label ?: 0,
+            entity.candidateInfoEntity?.candidate
+        )
+        mPeerConnection!!.addIceCandidate(remoteIceCandidate)
+    }
+
+    private fun onRemoteHangup(entity: CallInfoEntity?) {
+        logcatOnUI("Receive Remote Hanup Event ...")
+        hangUp()
     }
 
     private fun logcatOnUI(msg: String) {

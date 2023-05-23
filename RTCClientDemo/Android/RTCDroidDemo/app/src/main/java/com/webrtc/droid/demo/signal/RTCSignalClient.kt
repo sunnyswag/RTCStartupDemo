@@ -13,24 +13,12 @@ import io.socket.client.Socket
 import java.net.URISyntaxException
 
 class RTCSignalClient {
-    private var mOnSignalEventListener: OnSignalEventListener? = null
     private var mSocket: Socket? = null
-    var userId: String? = null
+    lateinit var userId: String
         private set
-    private var mRoomName: String? = null
+    private lateinit var mRoomName: String
 
-    interface OnSignalEventListener {
-        fun onConnected()
-        fun onConnecting()
-        fun onDisconnected()
-        fun onRemoteUserJoined(userId: String?)
-        fun onRemoteUserLeft(userId: String?)
-        fun onBroadcastReceived(entity: CallInfoEntity?)
-    }
-
-    fun setSignalEventListener(listener: OnSignalEventListener?) {
-        mOnSignalEventListener = listener
-    }
+    var broadcastReceived: ((entity: CallInfoEntity?) -> Unit)? = null
 
     fun joinRoom(url: String, userId: String, roomName: String) {
         Log.i(TAG, "${JOIN_ROOM}: $url, $userId, $roomName")
@@ -57,52 +45,24 @@ class RTCSignalClient {
     }
 
     fun sendMessage(message: String) {
-        Log.i(TAG, "broadcast: $message")
-        mSocket?.emit("broadcast", message)
+        Log.i(TAG, "$CLIENT_COMMAND_BROADCAST: $message")
+        mSocket?.emit(CLIENT_COMMAND_BROADCAST, message)
     }
 
     private fun listenSignalEvents() {
-        if (mSocket == null) {
-            return
-        }
-        mSocket!!.on(Socket.EVENT_CONNECT_ERROR) { args -> Log.e(TAG, "onConnectError: $args") }
-        mSocket!!.on(Socket.EVENT_ERROR) { args -> Log.e(TAG, "onError: $args") }
-        mSocket!!.on(Socket.EVENT_CONNECT) {
-            Log.i(TAG, "onConnected")
-            mOnSignalEventListener?.onConnected()
-        }
-        mSocket!!.on(Socket.EVENT_CONNECTING) {
-            Log.i(TAG, "onConnecting")
-            mOnSignalEventListener?.onConnecting()
-        }
-        mSocket!!.on(Socket.EVENT_DISCONNECT) {
-            Log.i(TAG, "onDisconnected")
-            mOnSignalEventListener?.onDisconnected()
-        }
-        mSocket!!.on("user-joined") { args ->
-            val userId = args[0] as String
-            safeLet(userId, mOnSignalEventListener) { id, listener ->
-                listener.onRemoteUserJoined(id)
-            }
-            Log.i(TAG, "onRemoteUserJoined: $userId")
-        }
-        mSocket!!.on("user-left") { args ->
-            val userId = args[0] as String
-            if (this@RTCSignalClient.userId != userId && mOnSignalEventListener != null) {
-                mOnSignalEventListener!!.onRemoteUserLeft(userId)
-            }
-            Log.i(TAG, "onRemoteUserLeft: $userId")
-        }
-        mSocket!!.on("broadcast") { args ->
+        mSocket?.on(Socket.EVENT_CONNECT_ERROR) { args -> Log.e(TAG, "onConnectError: $args") }
+        mSocket?.on(Socket.EVENT_ERROR) { args -> Log.e(TAG, "onError: $args") }
+        mSocket?.on(CLIENT_COMMAND_BROADCAST) { args ->
             val msg = (args[0] as String).toBean<CallInfoEntity>()
-            if (this@RTCSignalClient.userId != msg?.userId && mOnSignalEventListener != null) {
-                mOnSignalEventListener!!.onBroadcastReceived(msg)
+            if (this@RTCSignalClient.userId != msg?.userId) {
+                broadcastReceived?.invoke(msg)
             }
         }
     }
 
     companion object {
         private const val TAG = "RTCSignalClient"
+        const val CLIENT_COMMAND_BROADCAST = "broadcast"
         private var mInstance: RTCSignalClient? = null
         @JvmStatic
         val instance: RTCSignalClient?
