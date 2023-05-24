@@ -1,11 +1,6 @@
 package com.webrtc.droid.demo.observer
 
 import android.util.Log
-import com.webrtc.droid.demo.entity.CallInfoEntity
-import com.webrtc.droid.demo.entity.CandidateInfoEntity
-import com.webrtc.droid.demo.entity.MESSAGE_TYPE_CANDIDATE
-import com.webrtc.droid.demo.signal.RTCSignalClient
-import com.webrtc.droid.demo.toJson
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
 import org.webrtc.MediaStream
@@ -43,16 +38,6 @@ open class SimplePeerObserver : PeerConnection.Observer {
 
     override fun onIceCandidate(iceCandidate: IceCandidate) {
         Log.i(tag, "onIceCandidate: $iceCandidate")
-        RTCSignalClient.instance!!.sendMessage(
-            CallInfoEntity(
-            RTCSignalClient.instance!!.userId,
-            MESSAGE_TYPE_CANDIDATE,
-            candidateInfoEntity = CandidateInfoEntity(
-                iceCandidate.sdpMLineIndex,
-                iceCandidate.sdpMid,
-                iceCandidate.sdp
-            )
-        ).toJson())
     }
 
     override fun onIceCandidatesRemoved(iceCandidates: Array<IceCandidate>) {

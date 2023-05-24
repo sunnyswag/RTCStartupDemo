@@ -1,6 +1,7 @@
 package com.webrtc.droid.demo.core.api
 
 import com.webrtc.droid.demo.entity.CallInfoEntity
+import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
 
 /**
@@ -11,6 +12,7 @@ import org.webrtc.SessionDescription
 interface IRTCConnection {
 
     var onConstructSdpSuccess: (msgType: Int, sessionDescription: SessionDescription) -> Unit
+    var onConstructIceCandidateSuccess: (iceCandidate: IceCandidate) -> Unit
 
     /**
      * 用户手动触发，开始通话，此时会发送 [MESSAGE_TYPE_OFFER] 类型的消息

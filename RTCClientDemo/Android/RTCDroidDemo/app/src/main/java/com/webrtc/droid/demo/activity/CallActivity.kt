@@ -8,6 +8,7 @@ import com.webrtc.droid.demo.core.RTCConnection
 import com.webrtc.droid.demo.core.api.IRTCConnection
 import com.webrtc.droid.demo.databinding.ActivityCallBinding
 import com.webrtc.droid.demo.entity.CallInfoEntity
+import com.webrtc.droid.demo.entity.CandidateInfoEntity
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_ANSWER
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_CANDIDATE
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_HANGUP
@@ -15,6 +16,7 @@ import com.webrtc.droid.demo.entity.MESSAGE_TYPE_OFFER
 import com.webrtc.droid.demo.safeLet
 import com.webrtc.droid.demo.signal.RTCSignalClient.Companion.instance
 import com.webrtc.droid.demo.toJson
+import org.webrtc.IceCandidate
 import org.webrtc.Logging
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SessionDescription
@@ -30,7 +32,7 @@ class CallActivity : AppCompatActivity() {
         initUI()
         setContentView(binding.root)
 
-        mRTCConnection = RTCConnection(this, ::onConstructSdpSuccess)
+        mRTCConnection = RTCConnection(this, ::onConstructSdpSuccess, ::onConstructIceCandidateSuccess)
         initSignalClient()
         Logging.enableLogToDebugOutput(Logging.Severity.LS_VERBOSE)
     }
@@ -83,6 +85,20 @@ class CallActivity : AppCompatActivity() {
                 instance.userId,
                 msgType,
                 sessionDescription.description
+            ).toJson()
+        )
+    }
+
+    private fun onConstructIceCandidateSuccess(iceCandidate: IceCandidate) {
+        instance.sendMessage(
+            CallInfoEntity(
+                instance.userId,
+                MESSAGE_TYPE_CANDIDATE,
+                candidateInfoEntity = CandidateInfoEntity(
+                    iceCandidate.sdpMLineIndex,
+                    iceCandidate.sdpMid,
+                    iceCandidate.sdp
+                )
             ).toJson()
         )
     }

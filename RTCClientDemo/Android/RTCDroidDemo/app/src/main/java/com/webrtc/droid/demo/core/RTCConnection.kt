@@ -26,7 +26,8 @@ import org.webrtc.VideoEncoderFactory
  */
 class RTCConnection(
     context: Context,
-    override var onConstructSdpSuccess: (msgType: Int, sessionDescription: SessionDescription) -> Unit
+    override var onConstructSdpSuccess: (msgType: Int, sessionDescription: SessionDescription) -> Unit,
+    override var onConstructIceCandidateSuccess: (iceCandidate: IceCandidate) -> Unit
 ) : IRTCConnection {
 
     private var mPeerConnection: PeerConnection? = null
@@ -93,7 +94,7 @@ class RTCConnection(
                     "Create $msgType success, description: ${sessionDescription.description}"
                 )
                 mPeerConnection?.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                onConstructSdpSuccess.invoke(msgType, sessionDescription)
+                onConstructSdpSuccess(msgType, sessionDescription)
             }
         }
     }
@@ -122,6 +123,11 @@ class RTCConnection(
         override fun onIceCandidatesRemoved(iceCandidates: Array<IceCandidate>) {
             super.onIceCandidatesRemoved(iceCandidates)
             mPeerConnection?.removeIceCandidates(iceCandidates)
+        }
+
+        override fun onIceCandidate(iceCandidate: IceCandidate) {
+            super.onIceCandidate(iceCandidate)
+            onConstructIceCandidateSuccess(iceCandidate)
         }
     }
 
