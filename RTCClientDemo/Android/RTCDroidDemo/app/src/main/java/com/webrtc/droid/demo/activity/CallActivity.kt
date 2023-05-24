@@ -94,26 +94,13 @@ class CallActivity : AppCompatActivity() {
 
     private fun doStartCall() {
         logcatOnUI("Start Call, Wait ...")
-        if (mPeerConnection == null) {
-            mPeerConnection = createPeerConnection()
+        initPeerConnection()
+        val mediaConstraints = MediaConstraints().apply {
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
         }
-        val mediaConstraints = MediaConstraints()
-        mediaConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-        mediaConstraints.mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
-        mediaConstraints.optional.add(MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"))
-        mPeerConnection?.createOffer(object : SimpleSdpObserver() {
-            override fun onCreateSuccess(sessionDescription: SessionDescription) {
-                Log.i(TAG, "Create local offer success:${sessionDescription.description}")
-                mPeerConnection?.setLocalDescription(SimpleSdpObserver(), sessionDescription)
-                instance.sendMessage(
-                    CallInfoEntity(
-                        instance.userId,
-                        MESSAGE_TYPE_OFFER,
-                        sessionDescription.description
-                    ).toJson()
-                )
-            }
-        }, mediaConstraints)
+        mPeerConnection?.createOffer(getSimpleObserverByMsgType(MESSAGE_TYPE_OFFER), mediaConstraints)
     }
 
     private fun doEndCall() {
@@ -129,25 +116,26 @@ class CallActivity : AppCompatActivity() {
 
     private fun doAnswerCall() {
         logcatOnUI("Answer Call, Wait ...")
-        if (mPeerConnection == null) {
-            mPeerConnection = createPeerConnection()
-        }
-        val sdpMediaConstraints = MediaConstraints()
+        initPeerConnection()
         Log.i(TAG, "Create answer ...")
-        mPeerConnection?.createAnswer(object : SimpleSdpObserver() {
+        mPeerConnection?.createAnswer(getSimpleObserverByMsgType(MESSAGE_TYPE_ANSWER), MediaConstraints())
+        updateCallState(false)
+    }
+
+    private fun getSimpleObserverByMsgType(msgType: Int): SimpleSdpObserver {
+        return object : SimpleSdpObserver() {
             override fun onCreateSuccess(sessionDescription: SessionDescription) {
-                Log.i(TAG, "Create answer success !")
+                Log.i(TAG, "Create $msgType success, description: ${sessionDescription.description}")
                 mPeerConnection?.setLocalDescription(SimpleSdpObserver(), sessionDescription)
                 instance.sendMessage(
                     CallInfoEntity(
                         instance.userId,
-                        MESSAGE_TYPE_ANSWER,
+                        msgType,
                         sessionDescription.description
                     ).toJson()
                 )
             }
-        }, sdpMediaConstraints)
-        updateCallState(false)
+        }
     }
 
     private fun hangUp() {
@@ -169,6 +157,12 @@ class CallActivity : AppCompatActivity() {
         return connection?.apply { addTrack(mAudioTrack) } ?: kotlin.run {
             Log.e(TAG, "Failed to createPeerConnection !")
             null
+        }
+    }
+
+    private fun initPeerConnection() {
+        if (mPeerConnection == null) {
+            mPeerConnection = createPeerConnection()
         }
     }
 
@@ -199,7 +193,6 @@ class CallActivity : AppCompatActivity() {
     }
 
     private fun onBroadcastReceived(entity: CallInfoEntity?) {
-        logcatOnUI("Receive Remote Answer ...")
         Log.i(TAG, "onBroadcastReceived: ${entity?.toJson()}")
         when (entity?.msgType) {
             MESSAGE_TYPE_OFFER -> onRemoteOfferReceived(entity)
@@ -211,9 +204,7 @@ class CallActivity : AppCompatActivity() {
 
     private fun onRemoteOfferReceived(entity: CallInfoEntity) {
         logcatOnUI("Receive Remote Call ...")
-        if (mPeerConnection == null) {
-            mPeerConnection = createPeerConnection()
-        }
+        initPeerConnection()
         mPeerConnection!!.setRemoteDescription(
             SimpleSdpObserver(),
             SessionDescription(SessionDescription.Type.OFFER, entity.sdp)
