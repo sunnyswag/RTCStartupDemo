@@ -11,7 +11,9 @@ import org.webrtc.SessionDescription
  */
 interface IRTCConnection {
 
+    /** 当 webRTC 收集好 sdp 相关信息时，会收到这个回调 */
     var onConstructSdpSuccess: (msgType: Int, sessionDescription: SessionDescription) -> Unit
+    /** 当 webRTC 收集好 candidate 相关信息时，会收到这个回调 */
     var onConstructIceCandidateSuccess: (iceCandidate: IceCandidate) -> Unit
 
     /**
