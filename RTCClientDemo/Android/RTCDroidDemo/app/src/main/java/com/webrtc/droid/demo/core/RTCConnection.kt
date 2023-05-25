@@ -2,7 +2,13 @@ package com.webrtc.droid.demo.core
 
 import android.content.Context
 import android.util.Log
-import com.webrtc.droid.demo.core.api.IRTCConnection
+import com.webrtc.droid.demo.core.api.IAudioServiceControl
+import com.webrtc.droid.demo.core.api.IRTCControl
+import com.webrtc.droid.demo.core.api.IVideoServiceControl
+import com.webrtc.droid.demo.core.service.AudioService
+import com.webrtc.droid.demo.core.service.NullAudioServiceControl
+import com.webrtc.droid.demo.core.service.NullVideoServiceControl
+import com.webrtc.droid.demo.core.service.VideoService
 import com.webrtc.droid.demo.entity.CallInfoEntity
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_ANSWER
 import com.webrtc.droid.demo.entity.MESSAGE_TYPE_OFFER
@@ -13,11 +19,14 @@ import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
+import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.RtpReceiver
 import org.webrtc.SessionDescription
 import org.webrtc.VideoDecoderFactory
 import org.webrtc.VideoEncoderFactory
+import org.webrtc.VideoTrack
 
 /**
  * @author: huiqing.huang
@@ -27,8 +36,13 @@ import org.webrtc.VideoEncoderFactory
 class RTCConnection(
     context: Context,
     override var onConstructSdpSuccess: (msgType: Int, sessionDescription: SessionDescription) -> Unit,
-    override var onConstructIceCandidateSuccess: (iceCandidate: IceCandidate) -> Unit
-) : IRTCConnection {
+    override var onConstructIceCandidateSuccess: (iceCandidate: IceCandidate) -> Unit,
+    private val audioService: AudioService? = null,
+    private val videoService: VideoService? = null,
+) : IRTCControl,
+    IVideoServiceControl by (videoService ?: NullVideoServiceControl) ,
+    IAudioServiceControl by (audioService ?: NullAudioServiceControl)
+{
 
     private var mPeerConnection: PeerConnection? = null
     private var mRootEglBase: EglBase = EglBase.create()
@@ -36,6 +50,8 @@ class RTCConnection(
 
     init {
         mPeerConnectionFactory = createPeerConnectionFactory(context)
+        videoService?.doInit(mPeerConnectionFactory, mRootEglBase)
+        audioService?.doInit(mPeerConnectionFactory)
     }
 
     override fun doUserStartCall() {
@@ -113,7 +129,10 @@ class RTCConnection(
         val configuration = PeerConnection.RTCConfiguration(iceServers)
         val connection =
             mPeerConnectionFactory.createPeerConnection(configuration, mPeerConnectionObserver)
-        return connection?.apply { addTrack(getAudioTrack()) } ?: kotlin.run {
+        return connection?.apply {
+            videoService?.getVideoServiceTrack()?.let { addTrack(it) }
+            audioService?.getAudioServiceTrack()?.let { addTrack(it) }
+        } ?: kotlin.run {
             Log.e(TAG, "Failed to createPeerConnection !")
             null
         }
@@ -128,6 +147,17 @@ class RTCConnection(
         override fun onIceCandidate(iceCandidate: IceCandidate) {
             super.onIceCandidate(iceCandidate)
             onConstructIceCandidateSuccess(iceCandidate)
+        }
+
+        override fun onAddTrack(rtpReceiver: RtpReceiver, mediaStreams: Array<MediaStream>) {
+            val remoteVideoTrack = rtpReceiver.track()
+            if (remoteVideoTrack is VideoTrack) {
+                Log.i(TAG, "onAddVideoTrack")
+                remoteVideoTrack.setEnabled(true)
+                remoteVideoTrack.addSink {
+                    videoService?.remoteSurfaceView?.onFrame(it)
+                }
+            }
         }
     }
 
@@ -149,8 +179,6 @@ class RTCConnection(
         builder.setOptions(null)
         return builder.createPeerConnectionFactory()
     }
-
-    private fun getAudioTrack() = AudioTracker(mPeerConnectionFactory).audioTrack
 
     companion object {
         private const val TAG = "RTCConnection"

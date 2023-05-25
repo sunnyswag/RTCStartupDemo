@@ -9,7 +9,7 @@ import org.webrtc.SessionDescription
  * create on 2023/5/24 16:07
  * desc: WebRTC 连接相关接口
  */
-interface IRTCConnection {
+interface IRTCControl {
 
     /** 当 webRTC 收集好 sdp 相关信息时，会收到这个回调 */
     var onConstructSdpSuccess: (msgType: Int, sessionDescription: SessionDescription) -> Unit

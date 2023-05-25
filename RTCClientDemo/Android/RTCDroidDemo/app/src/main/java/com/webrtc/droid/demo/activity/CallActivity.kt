@@ -4,8 +4,9 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import com.webrtc.droid.demo.core.service.AudioService
 import com.webrtc.droid.demo.core.RTCConnection
-import com.webrtc.droid.demo.core.api.IRTCConnection
+import com.webrtc.droid.demo.core.service.VideoService
 import com.webrtc.droid.demo.databinding.ActivityCallBinding
 import com.webrtc.droid.demo.entity.CallInfoEntity
 import com.webrtc.droid.demo.entity.CandidateInfoEntity
@@ -25,14 +26,20 @@ import java.util.UUID
 class CallActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCallBinding
-    private lateinit var mRTCConnection: IRTCConnection
+    private lateinit var mRTCConnection: RTCConnection
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initUI()
         setContentView(binding.root)
 
-        mRTCConnection = RTCConnection(this, ::onConstructSdpSuccess, ::onConstructIceCandidateSuccess)
+        mRTCConnection = RTCConnection(
+            this,
+            ::onConstructSdpSuccess,
+            ::onConstructIceCandidateSuccess,
+            AudioService(),
+            VideoService(binding.LocalSurfaceView, binding.RemoteSurfaceView)
+        )
         initSignalClient()
         Logging.enableLogToDebugOutput(Logging.Severity.LS_VERBOSE)
     }
@@ -57,9 +64,20 @@ class CallActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        mRTCConnection.startCapture()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        mRTCConnection.stopCapture()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         doEndCall()
+        mRTCConnection.releaseService()
         PeerConnectionFactory.stopInternalTracingCapture()
         PeerConnectionFactory.shutdownInternalTracer()
         instance.leaveRoom()
