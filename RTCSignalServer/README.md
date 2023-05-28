@@ -7,6 +7,7 @@ A simple signal server written in Golang based on  [socket.io](https://socket.io
 ```shell
 $ cd RTCSignalServer
 $ source env.sh 
+$ go env -w GO111MODULE=off
 $ make
 ```
 ## 2. Run
